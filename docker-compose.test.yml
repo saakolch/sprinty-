@@ -1,0 +1,57 @@
+# Test-only PostgreSQL. Deliberately disposable: tmpfs data dir, no volume.
+#
+#   npm run db:up      start (waits for healthy)
+#   npm run db:down    stop and wipe
+#
+# Port 54322 matches the Supabase CLI's local database port.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: lifeos-test-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      # Speeds up repeated test runs; nothing here is durable.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    ports:
+      - "54322:5432"
+    command:
+      - postgres
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+      - -c
+      - max_connections=100
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./tests/db/init.sql:/docker-entrypoint-initdb.d/00-authenticator.sql:ro
+
+  # Real PostgREST — the HTTP layer `@supabase/supabase-js` talks to. Used only
+  # by the optional `npm run test:rest` suite:
+  #   docker compose -f docker-compose.test.yml --profile rest up -d --wait
+  rest:
+    image: postgrest/postgrest:latest
+    container_name: lifeos-test-rest
+    profiles: ["rest"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:postgres@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: lifeos-test-jwt-secret-at-least-32-characters
+      PGRST_LOG_LEVEL: error
+    ports:
+      - "54323:3000"
