@@ -7,6 +7,7 @@ import { UserMenu } from "@/components/user-menu";
 const NAV = [
   { href: "/dashboard", label: "Overview", ready: true },
   { href: "/habits", label: "Habits", ready: true },
+  { href: "/goals", label: "Goals", ready: true },
   { href: "/kanban", label: "Kanban", ready: true },
   { href: "/finance", label: "Finance", ready: true },
   { href: "/notes", label: "Notes", ready: true },

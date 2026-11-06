@@ -88,6 +88,7 @@ project does not pause.
 | Route      | What works today                                                                        |
 | ---------- | --------------------------------------------------------------------------------------- |
 | `/habits`  | Create, archive, tick any of the last seven days; streaks survive missed days correctly |
+| `/goals`   | Create, edit, status; success measures with current values; checklist tasks; progress   |
 | `/kanban`  | Default five-column board, add cards, move them left/right, delete                      |
 | `/notes`   | Create, edit, delete; every content change is snapshotted by a database trigger         |
 | `/finance` | One active period, expenses/income with dates, live totals and balance, delete          |
@@ -132,13 +133,13 @@ npm run verify      # typecheck + lint + unit + RLS (SQL & HTTP) + build
 npm run test:e2e    # production build, then Playwright on desktop + mobile
 ```
 
-| Suite      | Command             | What it proves                                               |
-| ---------- | ------------------- | ------------------------------------------------------------ |
-| Unit       | `npm run test`      | Streaks, money math, daily score, date handling              |
-| RLS / SQL  | `npm run test:db`   | 153 assertions across 26 tables, two real users              |
-| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST           |
-| MCP        | `npm run test:mcp`  | 12 tests: 15 tools, JSON-RPC `tools/list`, cross-user denial |
-| E2E        | `npm run test:e2e`  | 18 journeys: auth, habits, Kanban, notes, finance, overview  |
+| Suite      | Command             | What it proves                                                     |
+| ---------- | ------------------- | ------------------------------------------------------------------ |
+| Unit       | `npm run test`      | Streaks, goal progress, money math, daily score, dates             |
+| RLS / SQL  | `npm run test:db`   | 153 assertions across 26 tables, two real users                    |
+| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST                 |
+| MCP        | `npm run test:mcp`  | 12 tests: 15 tools, JSON-RPC `tools/list`, cross-user denial       |
+| E2E        | `npm run test:e2e`  | 26 journeys: auth, goals, habits, Kanban, notes, finance, overview |
 
 `test:e2e` and `test:mcp` need the local Supabase stack (`npm run supabase:start`)
 because auth and RLS are real. E2E runs against a production build rather than
@@ -190,6 +191,7 @@ components/            UI primitives, auth forms, module forms
 lib/
   auth.ts              requireUser() / getSessionUser()
   habits.ts            streak + date math (pure)
+  goals.ts             measure/task progress (pure)
   finance.ts           money summary + formatting (pure)
   overview.ts          daily score (pure)
   kanban.ts            column movement (pure)
@@ -209,7 +211,7 @@ tests/
   integration-rest/    The same checks through supabase-js + PostgREST
   integration-mcp/     MCP tools + JSON-RPC protocol against local Supabase
   db/                  Docker/auth shim, fixtures, JWT + proxy helpers
-  e2e/                 Playwright journeys (auth, habits, kanban, notes, finance, overview)
+  e2e/                 Playwright journeys (auth, goals, habits, kanban, notes, finance, overview)
 docker-compose.test.yml
 ```
 
