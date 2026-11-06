@@ -3,7 +3,7 @@
 #   npm run db:up      start (waits for healthy)
 #   npm run db:down    stop and wipe
 #
-# Port 54322 matches the Supabase CLI's local database port.
+# Port 54331 matches the Supabase CLI's local database port.
 services:
   db:
     image: postgres:17-alpine
@@ -15,7 +15,7 @@ services:
       # Speeds up repeated test runs; nothing here is durable.
       POSTGRES_INITDB_ARGS: "--data-checksums"
     ports:
-      - "54322:5432"
+      - "54331:5432"
     command:
       - postgres
       - -c
@@ -54,4 +54,4 @@ services:
       PGRST_JWT_SECRET: lifeos-test-jwt-secret-at-least-32-characters
       PGRST_LOG_LEVEL: error
     ports:
-      - "54323:3000"
+      - "54333:3000"

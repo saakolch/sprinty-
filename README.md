@@ -10,8 +10,8 @@ Vercel Hobby + Supabase Free.
 | ----- | -------------------------------------- | ----------- |
 | 0     | Scaffolding, tooling, smoke tests      | ✅ complete |
 | 1     | PostgreSQL schema + RLS (26 tables)    | ✅ complete |
-| 2     | Auth flows + end-to-end user isolation | next        |
-| 3     | Habit / Kanban / Notepad CRUD          | planned     |
+| 2     | Auth flows + end-to-end user isolation | ✅ complete |
+| 3     | Habit / Kanban / Notepad CRUD          | next        |
 | 4     | Overview dashboard                     | planned     |
 | 5     | MCP server (`/api/mcp`)                | planned     |
 | 6     | Deployment hardening + cron keep-alive | planned     |
@@ -24,27 +24,49 @@ Vercel Hobby + Supabase Free.
 - **Vitest** for unit and database/RLS integration tests.
 - **Playwright** for E2E, run at desktop and phone viewport sizes.
 
-## Quick start
+## Quick start (local, no cloud account)
+
+Requires Node.js 20.9+, npm, and Docker.
 
 ```bash
 npm install
+npm run setup:local   # supabase start + db reset + generate .env.local
+npm run dev           # http://localhost:3000
+```
 
-# Point the app at a Supabase project (cloud or `npx supabase start`)
-cp .env.example .env.local
-#   NEXT_PUBLIC_SUPABASE_URL=...
-#   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
-#   SUPABASE_SERVICE_ROLE_KEY=...
+`setup:local` starts the Supabase CLI stack (Postgres, GoTrue, PostgREST,
+Storage, Mailpit), applies every migration and `seed.sql`, and writes
+`.env.local` from `supabase status`. Email confirmation is disabled locally, so
+signing up at `/auth/sign-up` lands you straight on the dashboard.
 
-# Apply the schema (26 tables, RLS, storage bucket)
-npx supabase init            # creates supabase/config.toml, keeps migrations/
+### Against a hosted Supabase project
+
+```bash
+cp .env.example .env.local   # fill from Project Settings → API
 npx supabase link --project-ref <your-project-ref>
-npx supabase db push
-
+npx supabase db push         # applies supabase/migrations/*.sql
 npm run dev
 ```
 
 The migrations are plain SQL, so pasting `supabase/migrations/*.sql` into the
-Supabase SQL editor in filename order works too.
+SQL editor in filename order works too.
+
+## Auth and user isolation
+
+- **Server Actions** in `app/auth/actions.ts` own sign-up, login and logout.
+  The browser forms only hold pending/error state; credentials never touch
+  client-side Supabase calls.
+- `lib/supabase/proxy.ts` (Next 16 middleware) refreshes the session cookie on
+  every request and redirects anonymous traffic to `/auth/login`.
+- `lib/auth.ts` adds a server-side `requireUser()` guard on top, so a
+  misconfigured proxy cannot expose a page.
+- Every dashboard query runs with the user's JWT, so RLS decides what exists.
+  A new account sees zeros because the rows are invisible, not because the UI
+  filters them.
+- `tests/e2e/auth-isolation.spec.ts` proves the whole loop with two real
+  accounts: sign up A → seed A's habit directly in Postgres → A sees it → sign
+  out → sign up B → B sees an empty dashboard → log back in as A → A still sees
+  only their own data.
 
 ## Testing
 
@@ -56,14 +78,19 @@ npm run test:e2e    # Playwright (desktop + mobile), starts its own dev server
 | Suite      | Command             | What it proves                                     |
 | ---------- | ------------------- | -------------------------------------------------- |
 | Unit       | `npm run test`      | Client factories, pure logic                       |
-| RLS / SQL  | `npm run test:db`   | 145 assertions across 26 tables, two real users    |
+| RLS / SQL  | `npm run test:db`   | 148 assertions across 26 tables, two real users    |
 | RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST |
-| E2E        | `npm run test:e2e`  | Sign-up/login render, protected routes redirect    |
+| E2E        | `npm run test:e2e`  | Sign-up, login, logout, cross-account isolation    |
+
+`test:e2e` needs the local Supabase stack (`npm run supabase:start`) because the
+auth journey is real. The smoke tests also run against a backend-less dev
+server.
 
 ### How the RLS tests work
 
 `npm run test:db` starts a disposable PostgreSQL 17 container
-(`docker-compose.test.yml`, tmpfs data dir), then `tests/db/global-setup.ts`:
+(`docker-compose.test.yml`, tmpfs data dir, port 54331), then
+`tests/db/global-setup.ts`:
 
 1. drops and recreates `public` and `auth`,
 2. installs `tests/db/auth-shim.sql` — the Supabase auth surface (`auth.users`,
@@ -97,19 +124,24 @@ RLS, without all four policies, with a policy that does not reference
 ## Repository layout
 
 ```
-app/                 Next.js App Router routes (auth/, protected/, ...)
-components/          UI primitives + auth forms
-lib/supabase/        client.ts (browser), server.ts (RSC), proxy.ts (session refresh)
+app/
+  (app)/               authenticated shell + dashboard
+  auth/                login, sign-up, confirm, actions
+components/            UI primitives, auth forms, user menu
+lib/auth.ts            requireUser() / getSessionUser()
+lib/supabase/          client.ts (browser), server.ts (RSC), proxy.ts (session refresh)
+scripts/supabase-env.mjs   writes .env.local from `supabase status`
 supabase/
-  migrations/        0001 core · 0002 kanban · 0003 finance · 0004 notes/todos
-                     0005 RLS · 0006 storage
-  seed.sql           dev-only demo data for the newest user
+  config.toml          local stack (Studio/Realtime/Analytics/Edge disabled)
+  migrations/          0001 core · 0002 kanban · 0003 finance · 0004 notes/todos
+                       0005 RLS · 0006 storage
+  seed.sql             dev-only demo data for the newest user
 tests/
-  unit/              Vitest unit tests
-  integration/       RLS + schema invariants (real Postgres)
-  integration-rest/  The same checks through supabase-js + PostgREST
-  db/                Docker/auth shim, fixtures, JWT + proxy helpers
-  e2e/               Playwright
+  unit/                Vitest unit tests
+  integration/         RLS, schema invariants, account lifecycle
+  integration-rest/    The same checks through supabase-js + PostgREST
+  db/                  Docker/auth shim, fixtures, JWT + proxy helpers
+  e2e/                 Playwright (smoke + auth isolation)
 docker-compose.test.yml
 ```
 
@@ -130,10 +162,13 @@ docker-compose.test.yml
 
 ## Scripts
 
-| Script                                  | Purpose                      |
-| --------------------------------------- | ---------------------------- |
-| `npm run dev` / `build` / `start`       | Next.js                      |
-| `npm run typecheck` / `lint` / `format` | Quality gates                |
-| `npm run db:up` / `db:down`             | Test database lifecycle      |
-| `npm run test` / `test:db` / `test:e2e` | Test suites                  |
-| `npm run verify`                        | Everything except Playwright |
+| Script                                  | Purpose                               |
+| --------------------------------------- | ------------------------------------- |
+| `npm run dev` / `build` / `start`       | Next.js                               |
+| `npm run setup:local`                   | Supabase start + reset + `.env.local` |
+| `npm run supabase:start` / `:stop`      | Local Supabase lifecycle              |
+| `npm run supabase:reset` / `:env`       | Re-apply migrations / refresh env     |
+| `npm run typecheck` / `lint` / `format` | Quality gates                         |
+| `npm run db:up` / `db:down`             | Test database lifecycle (port 54331)  |
+| `npm run test` / `test:db` / `test:e2e` | Test suites                           |
+| `npm run verify`                        | Everything except Playwright          |

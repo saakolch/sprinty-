@@ -10,18 +10,14 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Placeholders: the build and the smoke tests must not depend on a real
-  # Supabase project. RLS tests use the disposable Postgres container.
-  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
-  SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
-  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54331/postgres
+  SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
 jobs:
   verify:
     name: Typecheck, RLS, build, E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +39,11 @@ jobs:
 
       # Same policies through @supabase/supabase-js -> PostgREST -> Postgres.
       - run: npm run test:rest
+
+      # Real GoTrue/PostgREST for the auth E2E suite, then .env.local from it.
+      - run: npx supabase start
+      - run: npx supabase db reset
+      - run: npm run supabase:env
 
       - run: npm run build
 

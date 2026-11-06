@@ -16,7 +16,7 @@ import { startRestProxy, type RestProxy } from "../db/rest-proxy";
  */
 
 const ANON_KEY = anonymousToken();
-const POSTGREST_URL = process.env.POSTGREST_URL ?? "http://127.0.0.1:54323";
+const POSTGREST_URL = process.env.POSTGREST_URL ?? "http://127.0.0.1:54333";
 
 // With a real Supabase URL the proxy is unnecessary; locally it plays the part
 // of Kong so the client's `/rest/v1` paths reach PostgREST.

@@ -3,7 +3,7 @@ import path from "node:path";
 import { Client } from "pg";
 
 const DATABASE_URL =
-  process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+  process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54331/postgres";
 
 const MIGRATIONS_DIR = path.resolve(process.cwd(), "supabase/migrations");
 const AUTH_SHIM = path.resolve(process.cwd(), "tests/db/auth-shim.sql");

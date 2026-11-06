@@ -11,6 +11,21 @@
 | `0005_rls.sql`         | RLS enablement, owner-only policies, grants                                                                                                                             |
 | `0006_storage.sql`     | Private `attachments` bucket + storage policies (no-op off Supabase)                                                                                                    |
 
+## Local stack
+
+`npm run setup:local` starts the Supabase CLI stack (Docker) and writes
+`.env.local` from `supabase status`.
+
+- API (Kong): `http://127.0.0.1:54321` — Auth at `/auth/v1`, REST at `/rest/v1`
+- Postgres: `127.0.0.1:54322` (user/password `postgres`)
+- Mailpit: `http://127.0.0.1:54324`
+- Disposable test DB: `127.0.0.1:54331`; test PostgREST: `127.0.0.1:54333`
+
+Studio, Realtime, Analytics and Edge Functions are disabled in `config.toml` to
+keep startup light; enable a service when a phase needs it. Auth, REST, Storage
+and Mailpit are on. Email confirmation is disabled locally, matching the
+sign-up E2E test.
+
 ## Conventions
 
 Every user-owned table has:
