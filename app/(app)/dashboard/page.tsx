@@ -39,6 +39,7 @@ interface Snapshot {
   completedHabitIds: Set<string>;
   dueToday: DueItem[];
   errors: string[];
+  displayName: string;
 }
 
 function DashboardSkeleton() {
@@ -63,11 +64,13 @@ async function loadSnapshot(): Promise<Snapshot & { today: string }> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("timezone")
+    .select("timezone, display_name")
     .eq("id", user.id)
     .maybeSingle();
 
-  const timezone = (profile as { timezone?: string } | null)?.timezone ?? "UTC";
+  const profileRow = profile as { timezone?: string; display_name?: string } | null;
+  const timezone = profileRow?.timezone ?? "UTC";
+  const displayName = profileRow?.display_name?.trim() ?? "";
   const today = todayIn(timezone);
 
   const [counted, habitRows, logRows, cardRows, todoRows] = await Promise.all([
@@ -128,16 +131,20 @@ async function loadSnapshot(): Promise<Snapshot & { today: string }> {
       .map((error) => error.message),
   ];
 
-  return { counts, habits, completedHabitIds, dueToday, errors, today };
+  return { counts, habits, completedHabitIds, dueToday, errors, today, displayName };
 }
 
 async function Overview() {
-  const { counts, habits, completedHabitIds, dueToday, errors, today } = await loadSnapshot();
+  const { counts, habits, completedHabitIds, dueToday, errors, today, displayName } =
+    await loadSnapshot();
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
   const score = dailyScore(completedHabitIds.size, habits.length);
 
   return (
     <div className="flex flex-col gap-8">
+      <p data-testid="greeting" className="-mb-4 text-sm text-muted-foreground">
+        Welcome back{displayName ? `, ${displayName}` : ""}.
+      </p>
       {errors.length > 0 ? (
         <div
           data-testid="dashboard-error"

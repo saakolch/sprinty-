@@ -85,14 +85,16 @@ project does not pause.
 
 ## Modules
 
-| Route      | What works today                                                                        |
-| ---------- | --------------------------------------------------------------------------------------- |
-| `/habits`  | Create, archive, tick any of the last seven days; streaks survive missed days correctly |
-| `/goals`   | Create, edit, status; success measures with current values; checklist tasks; progress   |
-| `/kanban`  | Default five-column board, add cards, move them left/right, delete                      |
-| `/notes`   | Create, edit, delete; every content change is snapshotted by a database trigger         |
-| `/finance` | One active period, expenses/income with dates, live totals and balance, delete          |
-| `/`        | Daily score (completed ÷ total habits), habits due, cards/todos due today, totals       |
+| Route       | What works today                                                                        |
+| ----------- | --------------------------------------------------------------------------------------- |
+| `/habits`   | Create, archive, tick any of the last seven days; streaks survive missed days correctly |
+| `/goals`    | Create, edit, status; success measures with current values; checklist tasks; progress   |
+| `/kanban`   | Default five-column board, add cards, move them left/right, delete                      |
+| `/todo`     | Add, complete, delete tasks; priorities and due dates; due items on the overview        |
+| `/notes`    | Create, edit, delete; every content change is snapshotted by a database trigger         |
+| `/finance`  | One active period, expenses/income with dates, live totals and balance, delete          |
+| `/settings` | Display name, IANA time zone (drives “today”), display currency                         |
+| `/`         | Daily score (completed ÷ total habits), habits due, cards/todos due today, totals       |
 
 Every mutation is a Server Action that validates input, derives `user_id` from
 the session (never from the form), and relies on RLS for ownership.
@@ -133,13 +135,13 @@ npm run verify      # typecheck + lint + unit + RLS (SQL & HTTP) + build
 npm run test:e2e    # production build, then Playwright on desktop + mobile
 ```
 
-| Suite      | Command             | What it proves                                                     |
-| ---------- | ------------------- | ------------------------------------------------------------------ |
-| Unit       | `npm run test`      | Streaks, goal progress, money math, daily score, dates             |
-| RLS / SQL  | `npm run test:db`   | 153 assertions across 26 tables, two real users                    |
-| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST                 |
-| MCP        | `npm run test:mcp`  | 12 tests: 15 tools, JSON-RPC `tools/list`, cross-user denial       |
-| E2E        | `npm run test:e2e`  | 26 journeys: auth, goals, habits, Kanban, notes, finance, overview |
+| Suite      | Command             | What it proves                                                                          |
+| ---------- | ------------------- | --------------------------------------------------------------------------------------- |
+| Unit       | `npm run test`      | Streaks, goal progress, todo order, settings, money, score, dates                       |
+| RLS / SQL  | `npm run test:db`   | 153 assertions across 26 tables, two real users                                         |
+| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST                                      |
+| MCP        | `npm run test:mcp`  | 12 tests: 15 tools, JSON-RPC `tools/list`, cross-user denial                            |
+| E2E        | `npm run test:e2e`  | 32 journeys: nav, auth, goals, habits, Kanban, todo, notes, finance, settings, overview |
 
 `test:e2e` and `test:mcp` need the local Supabase stack (`npm run supabase:start`)
 because auth and RLS are real. E2E runs against a production build rather than
@@ -192,6 +194,8 @@ lib/
   auth.ts              requireUser() / getSessionUser()
   habits.ts            streak + date math (pure)
   goals.ts             measure/task progress (pure)
+  todo.ts              task ordering (pure)
+  settings.ts          time zone validation + currencies (pure)
   finance.ts           money summary + formatting (pure)
   overview.ts          daily score (pure)
   kanban.ts            column movement (pure)
@@ -211,7 +215,8 @@ tests/
   integration-rest/    The same checks through supabase-js + PostgREST
   integration-mcp/     MCP tools + JSON-RPC protocol against local Supabase
   db/                  Docker/auth shim, fixtures, JWT + proxy helpers
-  e2e/                 Playwright journeys (auth, goals, habits, kanban, notes, finance, overview)
+  e2e/                 Playwright journeys (nav, auth, goals, habits, kanban, todo,
+                       notes, finance, settings, overview, edge cases)
 docker-compose.test.yml
 ```
 

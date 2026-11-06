@@ -9,6 +9,7 @@ const NAV = [
   { href: "/habits", label: "Habits", ready: true },
   { href: "/goals", label: "Goals", ready: true },
   { href: "/kanban", label: "Kanban", ready: true },
+  { href: "/todo", label: "Todo", ready: true },
   { href: "/finance", label: "Finance", ready: true },
   { href: "/notes", label: "Notes", ready: true },
 ];
@@ -22,29 +23,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             LifeOS
           </Link>
 
-          <nav aria-label="Main" className="hidden items-center gap-1 sm:flex">
-            {NAV.map((item) =>
-              item.ready ? (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-md px-3 py-1.5 text-sm hover:bg-accent"
-                >
-                  {item.label}
-                </Link>
-              ) : (
-                <span
-                  key={item.href}
-                  aria-disabled="true"
-                  title="Coming in a later phase"
-                  className="px-3 py-1.5 text-sm text-muted-foreground/60"
-                >
-                  {item.label}
-                </span>
-              ),
-            )}
-          </nav>
-
           <div className="flex items-center gap-1">
             <Suspense fallback={null}>
               <UserMenu />
@@ -52,6 +30,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <ThemeSwitcher />
           </div>
         </div>
+
+        {/* Visible at every width; scrolls horizontally on a phone. */}
+        <nav
+          aria-label="Main"
+          className="mx-auto flex w-full max-w-5xl items-center gap-1 overflow-x-auto px-3 pb-2 sm:justify-center"
+        >
+          {NAV.map((item) =>
+            item.ready ? (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="shrink-0 rounded-md px-3 py-1.5 text-sm hover:bg-accent"
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <span
+                key={item.href}
+                aria-disabled="true"
+                title="Coming in a later phase"
+                className="shrink-0 px-3 py-1.5 text-sm text-muted-foreground/60"
+              >
+                {item.label}
+              </span>
+            ),
+          )}
+        </nav>
       </header>
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
