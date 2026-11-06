@@ -6,10 +6,10 @@ import { UserMenu } from "@/components/user-menu";
 
 const NAV = [
   { href: "/dashboard", label: "Overview", ready: true },
-  { href: "/habits", label: "Habits", ready: false },
-  { href: "/kanban", label: "Kanban", ready: false },
-  { href: "/finance", label: "Finance", ready: false },
-  { href: "/notes", label: "Notes", ready: false },
+  { href: "/habits", label: "Habits", ready: true },
+  { href: "/kanban", label: "Kanban", ready: true },
+  { href: "/finance", label: "Finance", ready: true },
+  { href: "/notes", label: "Notes", ready: true },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

@@ -1,7 +1,11 @@
 import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
 import { Suspense } from "react";
 
+import { toggleHabitCompletion } from "@/app/(app)/habits/actions";
 import { requireUser } from "@/lib/auth";
+import { todayIn } from "@/lib/habits";
+import { dailyScore, habitProgress } from "@/lib/overview";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Overview · LifeOS" };
@@ -17,18 +21,56 @@ const STATS = [
 
 type StatKey = (typeof STATS)[number]["key"];
 
-interface DashboardSnapshot {
+interface Habit {
+  id: string;
+  name: string;
+}
+
+interface DueItem {
+  id: string;
+  title: string;
+  priority: string;
+  source: "Card" | "Todo";
+}
+
+interface Snapshot {
   counts: Record<StatKey, number>;
-  habits: { id: string; name: string }[];
+  habits: Habit[];
+  completedHabitIds: Set<string>;
+  dueToday: DueItem[];
   errors: string[];
 }
 
-async function loadSnapshot(): Promise<DashboardSnapshot> {
-  await requireUser();
+function DashboardSkeleton() {
+  return (
+    <div data-testid="dashboard-loading" className="flex flex-col gap-8">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="h-24 animate-pulse rounded-xl bg-muted" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
+async function loadSnapshot(): Promise<Snapshot & { today: string }> {
+  const user = await requireUser();
   const supabase = await createClient();
 
-  const [counted, habitList] = await Promise.all([
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const timezone = (profile as { timezone?: string } | null)?.timezone ?? "UTC";
+  const today = todayIn(timezone);
+
+  const [counted, habitRows, logRows, cardRows, todoRows] = await Promise.all([
     Promise.all(
       STATS.map(async (stat) => {
         const { count, error } = await supabase
@@ -37,7 +79,25 @@ async function loadSnapshot(): Promise<DashboardSnapshot> {
         return { key: stat.key, count: count ?? 0, error: error?.message ?? null };
       }),
     ),
-    supabase.from("habits").select("id, name").order("created_at", { ascending: true }).limit(5),
+    supabase
+      .from("habits")
+      .select("id, name")
+      .eq("archived", false)
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase.from("habit_logs").select("habit_id").eq("log_date", today).eq("done", true),
+    supabase
+      .from("cards")
+      .select("id, title, priority")
+      .eq("due_date", today)
+      .eq("archived", false)
+      .order("position", { ascending: true }),
+    supabase
+      .from("todo_tasks")
+      .select("id, title, priority")
+      .eq("due_date", today)
+      .eq("done", false)
+      .order("position", { ascending: true }),
   ]);
 
   const counts = Object.fromEntries(counted.map((row) => [row.key, row.count])) as Record<
@@ -45,34 +105,36 @@ async function loadSnapshot(): Promise<DashboardSnapshot> {
     number
   >;
 
-  const errors = [
-    ...counted.map((row) => row.error).filter((message): message is string => Boolean(message)),
-    ...(habitList.error ? [habitList.error.message] : []),
+  const habits = (habitRows.data ?? []) as Habit[];
+  const completedHabitIds = new Set(
+    ((logRows.data ?? []) as { habit_id: string }[]).map((log) => log.habit_id),
+  );
+
+  const dueToday: DueItem[] = [
+    ...((cardRows.data ?? []) as { id: string; title: string; priority: string }[]).map((card) => ({
+      ...card,
+      source: "Card" as const,
+    })),
+    ...((todoRows.data ?? []) as { id: string; title: string; priority: string }[]).map((todo) => ({
+      ...todo,
+      source: "Todo" as const,
+    })),
   ];
 
-  return {
-    counts,
-    habits: (habitList.data ?? []) as { id: string; name: string }[],
-    errors,
-  };
-}
+  const errors = [
+    ...counted.map((row) => row.error).filter((message): message is string => Boolean(message)),
+    ...[habitRows.error, logRows.error, cardRows.error, todoRows.error]
+      .filter((error): error is NonNullable<typeof error> => Boolean(error))
+      .map((error) => error.message),
+  ];
 
-function DashboardSkeleton() {
-  return (
-    <div data-testid="dashboard-loading" className="flex flex-col gap-8">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} className="h-24 animate-pulse rounded-xl bg-muted" />
-        ))}
-      </div>
-      <div className="h-40 animate-pulse rounded-xl bg-muted" />
-    </div>
-  );
+  return { counts, habits, completedHabitIds, dueToday, errors, today };
 }
 
 async function Overview() {
-  const { counts, habits, errors } = await loadSnapshot();
+  const { counts, habits, completedHabitIds, dueToday, errors, today } = await loadSnapshot();
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const score = dailyScore(completedHabitIds.size, habits.length);
 
   return (
     <div className="flex flex-col gap-8">
@@ -89,6 +151,83 @@ async function Overview() {
           </div>
         </div>
       ) : null}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <section data-testid="today-card" className="rounded-xl border bg-card p-4">
+          <div className="flex items-baseline justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Today</p>
+              <p data-testid="daily-score" className="mt-1 text-4xl font-semibold tabular-nums">
+                {score}%
+              </p>
+              <p data-testid="habit-progress" className="text-sm text-muted-foreground">
+                {habitProgress(completedHabitIds.size, habits.length)}
+              </p>
+            </div>
+          </div>
+
+          {habits.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              No habits yet.{" "}
+              <Link href="/habits" className="text-foreground underline underline-offset-4">
+                Add one
+              </Link>
+            </p>
+          ) : (
+            <ul className="mt-4 divide-y">
+              {habits.map((habit) => {
+                const done = completedHabitIds.has(habit.id);
+
+                return (
+                  <li key={habit.id} className="flex items-center justify-between py-2">
+                    <span className={`text-sm ${done ? "text-muted-foreground line-through" : ""}`}>
+                      {habit.name}
+                    </span>
+                    <form action={toggleHabitCompletion}>
+                      <input type="hidden" name="habitId" value={habit.id} />
+                      <input type="hidden" name="date" value={today} />
+                      <input type="hidden" name="done" value={done ? "false" : "true"} />
+                      <button
+                        type="submit"
+                        aria-pressed={done}
+                        aria-label={`${done ? "Unmark" : "Mark"} ${habit.name} for today`}
+                        data-testid={`today-habit-${habit.id}`}
+                        className={`flex size-6 items-center justify-center rounded-full border text-xs ${
+                          done
+                            ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-600"
+                            : "border-dashed"
+                        }`}
+                      >
+                        {done ? "✓" : ""}
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section data-testid="due-today" className="rounded-xl border bg-card p-4">
+          <h2 className="text-sm font-medium">Due today</h2>
+          {dueToday.length === 0 ? (
+            <p data-testid="due-today-empty" className="mt-3 text-sm text-muted-foreground">
+              Nothing due today.
+            </p>
+          ) : (
+            <ul data-testid="due-today-list" className="mt-3 divide-y">
+              {dueToday.map((item) => (
+                <li key={`${item.source}-${item.id}`} className="flex items-center gap-2 py-2">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
+                    {item.source}
+                  </span>
+                  <span className="truncate text-sm">{item.title}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
 
       <section aria-label="Totals" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {STATS.map((stat) => (
@@ -119,22 +258,7 @@ async function Overview() {
             page.
           </p>
         </section>
-      ) : (
-        <section aria-label="Habits" className="flex flex-col gap-3">
-          <h2 className="text-lg font-medium">Your habits</h2>
-          {habits.length > 0 ? (
-            <ul data-testid="habit-list" className="divide-y rounded-xl border">
-              {habits.map((habit) => (
-                <li key={habit.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                  <span>{habit.name}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No habits yet.</p>
-          )}
-        </section>
-      )}
+      ) : null}
     </div>
   );
 }

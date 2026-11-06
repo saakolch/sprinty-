@@ -192,11 +192,14 @@ export class Fixtures {
       ["Welcome"],
     );
 
-    await this.insert(
-      "note_revisions",
-      "insert into public.note_revisions (id, user_id, note_id, title) values ($1, $2, $3, $4)",
-      [note, "Welcome"],
+    // The 0007 trigger records the "created" revision; capture its id for the
+    // generic per-table isolation tests.
+    const revision = await this.client.query<{ id: string }>(
+      "select id from public.note_revisions where note_id = $1 order by created_at desc limit 1",
+      [note],
     );
+    if (!revision.rows[0]) throw new Error("note revision trigger did not fire");
+    this.rows.note_revisions = revision.rows[0].id;
 
     const list = await this.insert(
       "todo_lists",

@@ -9,6 +9,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
+  timeout: 60_000,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
   expect: { timeout: 10_000 },
   use: {
@@ -27,9 +28,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run dev -- --port ${PORT}`,
+    // Production build: no on-demand compilation, so parallel tests do not
+    // race each other through the dev server. `test:e2e` builds first.
+    command: `npm run start -- --port ${PORT}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

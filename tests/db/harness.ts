@@ -13,21 +13,32 @@ export interface PgError {
   details?: string;
 }
 
+function claimsFor(userId: string): Record<string, unknown> {
+  return {
+    sub: userId,
+    role: "authenticated",
+    aud: "authenticated",
+    email: `${userId}@test.local`,
+  };
+}
+
 /**
  * Runs `fn` with the connection switched to `role` and the given JWT claims,
- * inside a transaction that is always rolled back afterwards.
+ * inside a transaction that is rolled back afterwards.
  *
  * This is what PostgREST does per request:
  *   set local role authenticated;
  *   select set_config('request.jwt.claims', '{"sub":"..."}', true);
  *
  * Rolling back keeps the pooled connection clean (role and claims are
- * transaction-local) and makes tests independent.
+ * transaction-local) and makes read-only assertions independent. Use
+ * `asRoleCommitted` when the test needs the mutation to survive.
  */
-export async function asRole<T>(
+async function runAs<T>(
   role: Role,
   claims: Record<string, unknown> | null,
   fn: (client: PoolClient) => Promise<T>,
+  finish: "rollback" | "commit",
 ): Promise<T> {
   const client = await admin.connect();
 
@@ -40,7 +51,7 @@ export async function asRole<T>(
     }
     await client.query(`set local role ${role}`);
     const result = await fn(client);
-    await client.query("rollback");
+    await client.query(finish);
     return result;
   } catch (error) {
     await client.query("rollback").catch(() => {});
@@ -50,12 +61,33 @@ export async function asRole<T>(
   }
 }
 
+export function asRole<T>(
+  role: Role,
+  claims: Record<string, unknown> | null,
+  fn: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  return runAs(role, claims, fn, "rollback");
+}
+
+export function asRoleCommitted<T>(
+  role: Role,
+  claims: Record<string, unknown> | null,
+  fn: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  return runAs(role, claims, fn, "commit");
+}
+
+/** Read-only: the transaction is rolled back, so use it for SELECTs only. */
 export function asUser<T>(userId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  return asRole(
-    "authenticated",
-    { sub: userId, role: "authenticated", aud: "authenticated", email: `${userId}@test.local` },
-    fn,
-  );
+  return asRole("authenticated", claimsFor(userId), fn);
+}
+
+/** Committing variant for tests that need INSERT/UPDATE/DELETE to persist. */
+export function asUserCommitted<T>(
+  userId: string,
+  fn: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  return asRoleCommitted("authenticated", claimsFor(userId), fn);
 }
 
 export function asAnon<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {

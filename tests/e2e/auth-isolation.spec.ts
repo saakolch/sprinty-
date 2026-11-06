@@ -1,5 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { expect, test } from "@playwright/test";
+
+import { logIn, signOut, signUp, uniqueEmail } from "./auth-helpers";
+import { seedHabit } from "./seed";
 
 /**
  * Phase 2 acceptance: two real accounts, one browser, zero data leakage.
@@ -13,62 +15,9 @@ import { Client } from "pg";
  * must hide another user's rows even when they definitely exist.
  */
 
-const PASSWORD = "lifeos-test-password";
-const DB_URL =
-  process.env.SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
-
-async function withDb<T>(fn: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({ connectionString: DB_URL });
-  await client.connect();
-  try {
-    return await fn(client);
-  } finally {
-    await client.end();
-  }
-}
-
-async function seedHabit(email: string, name: string): Promise<void> {
-  await withDb(async (client) => {
-    const { rows } = await client.query<{ id: string }>(
-      "select id from auth.users where email = $1",
-      [email],
-    );
-    if (!rows[0]) throw new Error(`No auth user found for ${email}`);
-    await client.query("insert into public.habits (user_id, name) values ($1, $2)", [
-      rows[0].id,
-      name,
-    ]);
-  });
-}
-
-async function signUp(page: Page, email: string): Promise<void> {
-  await page.goto("/auth/sign-up");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-  await page.getByLabel("Repeat Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByTestId("stat-habits")).toBeVisible();
-}
-
-async function logIn(page: Page, email: string): Promise<void> {
-  await page.goto("/auth/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: "Login", exact: true }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByTestId("stat-habits")).toBeVisible();
-}
-
-async function signOut(page: Page): Promise<void> {
-  await page.getByTestId("sign-out").click();
-  await expect(page).toHaveURL(/\/auth\/login$/);
-}
-
 test("two users never see each other's data", async ({ page }) => {
-  const stamp = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const aliceEmail = `e2e-alice-${stamp}@lifeos.test`;
-  const bobEmail = `e2e-bob-${stamp}@lifeos.test`;
+  const aliceEmail = uniqueEmail("alice");
+  const bobEmail = uniqueEmail("bob");
 
   await test.step("Alice signs up and sees an empty dashboard", async () => {
     await signUp(page, aliceEmail);
@@ -84,6 +33,8 @@ test("two users never see each other's data", async ({ page }) => {
     await expect(page.getByTestId("stat-habits")).toHaveText("1");
     await expect(page.getByTestId("empty-state")).toHaveCount(0);
     await expect(page.getByText("Read 10 pages")).toBeVisible();
+    await expect(page.getByTestId("daily-score")).toHaveText("0%");
+    await expect(page.getByTestId("habit-progress")).toHaveText("0 of 1 habit");
   });
 
   await test.step("Bob signs up and cannot see Alice's habit", async () => {
@@ -92,6 +43,8 @@ test("two users never see each other's data", async ({ page }) => {
     await expect(page.getByTestId("user-email")).toHaveText(bobEmail);
     await expect(page.getByTestId("stat-habits")).toHaveText("0");
     await expect(page.getByTestId("empty-state")).toBeVisible();
+    await expect(page.getByTestId("daily-score")).toHaveText("0%");
+    await expect(page.getByTestId("habit-progress")).toHaveText("No habits yet");
     await expect(page.getByText("Read 10 pages")).toHaveCount(0);
     await expect(page.getByText(aliceEmail)).toHaveCount(0);
   });

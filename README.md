@@ -11,9 +11,9 @@ Vercel Hobby + Supabase Free.
 | 0     | Scaffolding, tooling, smoke tests      | ✅ complete |
 | 1     | PostgreSQL schema + RLS (26 tables)    | ✅ complete |
 | 2     | Auth flows + end-to-end user isolation | ✅ complete |
-| 3     | Habit / Kanban / Notepad CRUD          | next        |
-| 4     | Overview dashboard                     | planned     |
-| 5     | MCP server (`/api/mcp`)                | planned     |
+| 3     | Habit / Kanban / Notepad / Finance     | ✅ complete |
+| 4     | Overview dashboard                     | ✅ complete |
+| 5     | MCP server (`/api/mcp`)                | next        |
 | 6     | Deployment hardening + cron keep-alive | planned     |
 
 ## Stack
@@ -68,23 +68,36 @@ SQL editor in filename order works too.
   out → sign up B → B sees an empty dashboard → log back in as A → A still sees
   only their own data.
 
+## Modules
+
+| Route      | What works today                                                                        |
+| ---------- | --------------------------------------------------------------------------------------- |
+| `/habits`  | Create, archive, tick any of the last seven days; streaks survive missed days correctly |
+| `/kanban`  | Default five-column board, add cards, move them left/right, delete                      |
+| `/notes`   | Create, edit, delete; every content change is snapshotted by a database trigger         |
+| `/finance` | One active period, expenses/income with dates, live totals and balance, delete          |
+| `/`        | Daily score (completed ÷ total habits), habits due, cards/todos due today, totals       |
+
+Every mutation is a Server Action that validates input, derives `user_id` from
+the session (never from the form), and relies on RLS for ownership.
+
 ## Testing
 
 ```bash
 npm run verify      # typecheck + lint + unit + RLS (SQL & HTTP) + build
-npm run test:e2e    # Playwright (desktop + mobile), starts its own dev server
+npm run test:e2e    # production build, then Playwright on desktop + mobile
 ```
 
-| Suite      | Command             | What it proves                                     |
-| ---------- | ------------------- | -------------------------------------------------- |
-| Unit       | `npm run test`      | Client factories, pure logic                       |
-| RLS / SQL  | `npm run test:db`   | 148 assertions across 26 tables, two real users    |
-| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST |
-| E2E        | `npm run test:e2e`  | Sign-up, login, logout, cross-account isolation    |
+| Suite      | Command             | What it proves                                              |
+| ---------- | ------------------- | ----------------------------------------------------------- |
+| Unit       | `npm run test`      | Streaks, money math, daily score, date handling             |
+| RLS / SQL  | `npm run test:db`   | 153 assertions across 26 tables, two real users             |
+| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST          |
+| E2E        | `npm run test:e2e`  | 18 journeys: auth, habits, Kanban, notes, finance, overview |
 
 `test:e2e` needs the local Supabase stack (`npm run supabase:start`) because the
-auth journey is real. The smoke tests also run against a backend-less dev
-server.
+auth journey is real. It runs against a production build rather than `next dev`,
+so parallel tests do not race the compiler.
 
 ### How the RLS tests work
 
@@ -125,23 +138,29 @@ RLS, without all four policies, with a policy that does not reference
 
 ```
 app/
-  (app)/               authenticated shell + dashboard
+  (app)/               authenticated shell: dashboard, habits, kanban, notes, finance
   auth/                login, sign-up, confirm, actions
-components/            UI primitives, auth forms, user menu
-lib/auth.ts            requireUser() / getSessionUser()
-lib/supabase/          client.ts (browser), server.ts (RSC), proxy.ts (session refresh)
+components/            UI primitives, auth forms, module forms
+lib/
+  auth.ts              requireUser() / getSessionUser()
+  habits.ts            streak + date math (pure)
+  finance.ts           money summary + formatting (pure)
+  overview.ts          daily score (pure)
+  kanban.ts            column movement (pure)
+  notes.ts             titles + excerpts (pure)
+  supabase/            client.ts (browser), server.ts (RSC), proxy.ts (session refresh)
 scripts/supabase-env.mjs   writes .env.local from `supabase status`
 supabase/
   config.toml          local stack (Studio/Realtime/Analytics/Edge disabled)
   migrations/          0001 core · 0002 kanban · 0003 finance · 0004 notes/todos
-                       0005 RLS · 0006 storage
+                       0005 RLS · 0006 storage · 0007 note revisions
   seed.sql             dev-only demo data for the newest user
 tests/
-  unit/                Vitest unit tests
-  integration/         RLS, schema invariants, account lifecycle
+  unit/                Vitest unit tests (pure logic)
+  integration/         RLS, schema invariants, account lifecycle, note history
   integration-rest/    The same checks through supabase-js + PostgREST
   db/                  Docker/auth shim, fixtures, JWT + proxy helpers
-  e2e/                 Playwright (smoke + auth isolation)
+  e2e/                 Playwright journeys (auth, habits, kanban, notes, finance, overview)
 docker-compose.test.yml
 ```
 

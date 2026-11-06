@@ -2,14 +2,15 @@
 
 ## Migrations
 
-| File                   | Contents                                                                                                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0001_core.sql`        | `profiles`, `user_preferences`, habits (`habit_categories`, `habits`, `habit_logs`), goals (`goals`, `goal_measures`, `goal_tasks`)                                     |
-| `0002_kanban.sql`      | `boards`, `board_columns`, `board_labels`, `cards`, `card_labels`, `card_checklists`, `card_checklist_items`, `card_comments`, `card_custom_fields`, `card_attachments` |
-| `0003_finance.sql`     | `finance_periods`, `finance_categories`, `finance_transactions`                                                                                                         |
-| `0004_notes_todos.sql` | `notes`, `note_revisions`, `todo_lists`, `todo_tasks`, `todo_subtasks`                                                                                                  |
-| `0005_rls.sql`         | RLS enablement, owner-only policies, grants                                                                                                                             |
-| `0006_storage.sql`     | Private `attachments` bucket + storage policies (no-op off Supabase)                                                                                                    |
+| File                      | Contents                                                                                                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001_core.sql`           | `profiles`, `user_preferences`, habits (`habit_categories`, `habits`, `habit_logs`), goals (`goals`, `goal_measures`, `goal_tasks`)                                     |
+| `0002_kanban.sql`         | `boards`, `board_columns`, `board_labels`, `cards`, `card_labels`, `card_checklists`, `card_checklist_items`, `card_comments`, `card_custom_fields`, `card_attachments` |
+| `0003_finance.sql`        | `finance_periods`, `finance_categories`, `finance_transactions`                                                                                                         |
+| `0004_notes_todos.sql`    | `notes`, `note_revisions`, `todo_lists`, `todo_tasks`, `todo_subtasks`                                                                                                  |
+| `0005_rls.sql`            | RLS enablement, owner-only policies, grants                                                                                                                             |
+| `0006_storage.sql`        | Private `attachments` bucket + storage policies (no-op off Supabase)                                                                                                    |
+| `0007_note_revisions.sql` | Trigger that snapshots every note create/content change into `note_revisions`                                                                                           |
 
 ## Local stack
 
