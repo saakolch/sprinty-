@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { createDefaultBoard, deleteCard, moveCard } from "@/app/(app)/kanban/actions";
@@ -42,7 +43,12 @@ function CardItem({ card, columns }: { card: Card; columns: Column[] }) {
   return (
     <li className="shadow-xs rounded-lg border bg-background p-2.5 text-sm">
       <div className="flex items-start justify-between gap-2">
-        <p className="break-words leading-snug">{card.title}</p>
+        <Link
+          href={`/kanban/cards/${card.id}`}
+          className="break-words leading-snug underline-offset-4 hover:underline"
+        >
+          {card.title}
+        </Link>
         <form action={deleteCard}>
           <input type="hidden" name="cardId" value={card.id} />
           <button

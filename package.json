@@ -23,6 +23,7 @@
     "setup:local": "npm run supabase:start && npm run supabase:reset && npm run supabase:env",
     "test:rest": "npm run rest:up && vitest run --config vitest.rest.config.mts",
     "test:mcp": "vitest run --config vitest.mcp.config.mts",
+    "test:storage": "vitest run --config vitest.storage.config.mts",
     "mcp:token": "node scripts/mcp-token.mjs",
     "rest:up": "docker compose -f docker-compose.test.yml --profile rest up -d --wait",
     "db:up": "docker compose -f docker-compose.test.yml up -d --wait",

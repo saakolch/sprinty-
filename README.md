@@ -89,7 +89,7 @@ project does not pause.
 | ----------- | --------------------------------------------------------------------------------------- |
 | `/habits`   | Create, archive, tick any of the last seven days; streaks survive missed days correctly |
 | `/goals`    | Create, edit, status; success measures with current values; checklist tasks; progress   |
-| `/kanban`   | Default five-column board, add cards, move them left/right, delete                      |
+| `/kanban`   | Five-column board, add/move/delete cards; card detail with private attachments          |
 | `/todo`     | Add, complete, delete tasks; priorities and due dates; due items on the overview        |
 | `/notes`    | Create, edit, delete; every content change is snapshotted by a database trigger         |
 | `/finance`  | One active period, expenses/income with dates, live totals and balance, delete          |
@@ -135,17 +135,19 @@ npm run verify      # typecheck + lint + unit + RLS (SQL & HTTP) + build
 npm run test:e2e    # production build, then Playwright on desktop + mobile
 ```
 
-| Suite      | Command             | What it proves                                                                          |
-| ---------- | ------------------- | --------------------------------------------------------------------------------------- |
-| Unit       | `npm run test`      | Streaks, goal progress, todo order, settings, money, score, dates                       |
-| RLS / SQL  | `npm run test:db`   | 153 assertions across 26 tables, two real users                                         |
-| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST                                      |
-| MCP        | `npm run test:mcp`  | 12 tests: 15 tools, JSON-RPC `tools/list`, cross-user denial                            |
-| E2E        | `npm run test:e2e`  | 32 journeys: nav, auth, goals, habits, Kanban, todo, notes, finance, settings, overview |
+| Suite      | Command                | What it proves                                                                                       |
+| ---------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| Unit       | `npm run test`         | Streaks, goal progress, todo order, settings, money, score, dates                                    |
+| RLS / SQL  | `npm run test:db`      | 153 assertions across 26 tables, two real users                                                      |
+| RLS / HTTP | `npm run test:rest`    | The same isolation through supabase-js → PostgREST                                                   |
+| MCP        | `npm run test:mcp`     | 12 tests: 15 tools, JSON-RPC `tools/list`, cross-user denial                                         |
+| Storage    | `npm run test:storage` | 6 tests: private bucket, cross-user read/write denied                                                |
+| E2E        | `npm run test:e2e`     | 34 journeys: nav, auth, goals, habits, Kanban, attachments, todo, notes, finance, settings, overview |
 
-`test:e2e` and `test:mcp` need the local Supabase stack (`npm run supabase:start`)
-because auth and RLS are real. E2E runs against a production build rather than
-`next dev`, so parallel tests do not race the compiler.
+`test:e2e`, `test:mcp` and `test:storage` need the local Supabase stack
+(`npm run supabase:start`) because auth, RLS and Storage are real. E2E runs
+against a production build rather than `next dev`, so parallel tests do not
+race the compiler.
 
 ### How the RLS tests work
 
@@ -200,6 +202,7 @@ lib/
   overview.ts          daily score (pure)
   kanban.ts            column movement (pure)
   notes.ts             titles + excerpts (pure)
+  attachments.ts       sizes + storage-safe filenames (pure)
   mcp/tools.ts         15 MCP tool definitions
   mcp/server.ts        per-request MCP handler bound to one user's client
   supabase/            client.ts (browser), server.ts (RSC), proxy.ts (session refresh)
@@ -214,9 +217,10 @@ tests/
   integration/         RLS, schema invariants, account lifecycle, note history
   integration-rest/    The same checks through supabase-js + PostgREST
   integration-mcp/     MCP tools + JSON-RPC protocol against local Supabase
+  integration-storage/ Private attachments bucket, cross-user denial
   db/                  Docker/auth shim, fixtures, JWT + proxy helpers
-  e2e/                 Playwright journeys (nav, auth, goals, habits, kanban, todo,
-                       notes, finance, settings, overview, edge cases)
+  e2e/                 Playwright journeys (nav, auth, goals, habits, kanban, attachments,
+                       todo, notes, finance, settings, overview, edge cases)
 docker-compose.test.yml
 ```
 
@@ -237,15 +241,15 @@ docker-compose.test.yml
 
 ## Scripts
 
-| Script                                                             | Purpose                                  |
-| ------------------------------------------------------------------ | ---------------------------------------- |
-| `npm run dev` / `build` / `start`                                  | Next.js                                  |
-| `npm run setup:local`                                              | Supabase start + reset + `.env.local`    |
-| `npm run supabase:start` / `:stop`                                 | Local Supabase lifecycle                 |
-| `npm run supabase:reset` / `:env`                                  | Re-apply migrations / refresh env        |
-| `npm run typecheck` / `lint` / `format`                            | Quality gates                            |
-| `npm run db:up` / `db:down`                                        | Test database lifecycle (port 54331)     |
-| `npm run test` / `test:db` / `test:rest` / `test:mcp` / `test:e2e` | Test suites                              |
-| `npm run test:e2e:preview`                                         | Playwright against `PLAYWRIGHT_BASE_URL` |
-| `npm run mcp:token`                                                | Print a local access token for MCP       |
-| `npm run verify`                                                   | Everything that needs no Supabase stack  |
+| Script                                                                              | Purpose                                  |
+| ----------------------------------------------------------------------------------- | ---------------------------------------- |
+| `npm run dev` / `build` / `start`                                                   | Next.js                                  |
+| `npm run setup:local`                                                               | Supabase start + reset + `.env.local`    |
+| `npm run supabase:start` / `:stop`                                                  | Local Supabase lifecycle                 |
+| `npm run supabase:reset` / `:env`                                                   | Re-apply migrations / refresh env        |
+| `npm run typecheck` / `lint` / `format`                                             | Quality gates                            |
+| `npm run db:up` / `db:down`                                                         | Test database lifecycle (port 54331)     |
+| `npm run test` / `test:db` / `test:rest` / `test:mcp` / `test:storage` / `test:e2e` | Test suites                              |
+| `npm run test:e2e:preview`                                                          | Playwright against `PLAYWRIGHT_BASE_URL` |
+| `npm run mcp:token`                                                                 | Print a local access token for MCP       |
+| `npm run verify`                                                                    | Everything that needs no Supabase stack  |

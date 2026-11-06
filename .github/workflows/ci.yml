@@ -48,6 +48,9 @@ jobs:
       # MCP tools and protocol against the same local stack.
       - run: npm run test:mcp
 
+      # Private Storage bucket policies with two users.
+      - run: npm run test:storage
+
       - run: npm run build
 
       - run: npx playwright install --with-deps chromium
