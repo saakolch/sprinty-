@@ -6,15 +6,15 @@ Vercel Hobby + Supabase Free.
 
 **Status**
 
-| Phase | Scope                                  | State       |
-| ----- | -------------------------------------- | ----------- |
-| 0     | Scaffolding, tooling, smoke tests      | ✅ complete |
-| 1     | PostgreSQL schema + RLS (26 tables)    | ✅ complete |
-| 2     | Auth flows + end-to-end user isolation | ✅ complete |
-| 3     | Habit / Kanban / Notepad / Finance     | ✅ complete |
-| 4     | Overview dashboard                     | ✅ complete |
-| 5     | MCP server (`/api/mcp`)                | ✅ complete |
-| 6     | Deployment hardening + cron keep-alive | next        |
+| Phase | Scope                                      | State       |
+| ----- | ------------------------------------------ | ----------- |
+| 0     | Scaffolding, tooling, smoke tests          | ✅ complete |
+| 1     | PostgreSQL schema + RLS (26 tables)        | ✅ complete |
+| 2     | Auth flows + end-to-end user isolation     | ✅ complete |
+| 3     | Habit / Kanban / Notepad / Finance         | ✅ complete |
+| 4     | Overview dashboard                         | ✅ complete |
+| 5     | MCP server (`/api/mcp`)                    | ✅ complete |
+| 6     | Hardening done; deploy needs your accounts | 🟡 ready    |
 
 ## Stack
 
@@ -50,6 +50,21 @@ npm run dev
 
 The migrations are plain SQL, so pasting `supabase/migrations/*.sql` into the
 SQL editor in filename order works too.
+
+## Deployment
+
+See [docs/deployment.md](docs/deployment.md): create the Supabase project,
+`supabase db push`, import the repo into Vercel with the two public env vars,
+and add the keep-alive workflow secrets. The app needs no paid service.
+
+```bash
+PLAYWRIGHT_BASE_URL=https://<deployment>.vercel.app \
+SUPABASE_DB_URL='postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres' \
+npm run test:e2e:preview
+```
+
+`.github/workflows/keepalive.yml` pings Supabase every three days so the free
+project does not pause.
 
 ## Auth and user isolation
 
@@ -215,14 +230,15 @@ docker-compose.test.yml
 
 ## Scripts
 
-| Script                                                             | Purpose                                 |
-| ------------------------------------------------------------------ | --------------------------------------- |
-| `npm run dev` / `build` / `start`                                  | Next.js                                 |
-| `npm run setup:local`                                              | Supabase start + reset + `.env.local`   |
-| `npm run supabase:start` / `:stop`                                 | Local Supabase lifecycle                |
-| `npm run supabase:reset` / `:env`                                  | Re-apply migrations / refresh env       |
-| `npm run typecheck` / `lint` / `format`                            | Quality gates                           |
-| `npm run db:up` / `db:down`                                        | Test database lifecycle (port 54331)    |
-| `npm run test` / `test:db` / `test:rest` / `test:mcp` / `test:e2e` | Test suites                             |
-| `npm run mcp:token`                                                | Print a local access token for MCP      |
-| `npm run verify`                                                   | Everything that needs no Supabase stack |
+| Script                                                             | Purpose                                  |
+| ------------------------------------------------------------------ | ---------------------------------------- |
+| `npm run dev` / `build` / `start`                                  | Next.js                                  |
+| `npm run setup:local`                                              | Supabase start + reset + `.env.local`    |
+| `npm run supabase:start` / `:stop`                                 | Local Supabase lifecycle                 |
+| `npm run supabase:reset` / `:env`                                  | Re-apply migrations / refresh env        |
+| `npm run typecheck` / `lint` / `format`                            | Quality gates                            |
+| `npm run db:up` / `db:down`                                        | Test database lifecycle (port 54331)     |
+| `npm run test` / `test:db` / `test:rest` / `test:mcp` / `test:e2e` | Test suites                              |
+| `npm run test:e2e:preview`                                         | Playwright against `PLAYWRIGHT_BASE_URL` |
+| `npm run mcp:token`                                                | Print a local access token for MCP       |
+| `npm run verify`                                                   | Everything that needs no Supabase stack  |

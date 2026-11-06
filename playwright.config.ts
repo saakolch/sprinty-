@@ -1,7 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3100;
-const baseURL = `http://127.0.0.1:${PORT}`;
+
+// Point the suite at a deployed preview with:
+//   PLAYWRIGHT_BASE_URL=https://<deployment>.vercel.app npm run test:e2e:preview
+const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+const baseURL = externalBaseUrl ?? `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -27,12 +31,15 @@ export default defineConfig({
       use: { ...devices["Pixel 7"] },
     },
   ],
-  webServer: {
-    // Production build: no on-demand compilation, so parallel tests do not
-    // race each other through the dev server. `test:e2e` builds first.
-    command: `npm run start -- --port ${PORT}`,
-    url: baseURL,
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  // No local server when testing an external deployment.
+  webServer: externalBaseUrl
+    ? undefined
+    : {
+        // Production build: no on-demand compilation, so parallel tests do not
+        // race each other through the dev server. `test:e2e` builds first.
+        command: `npm run start -- --port ${PORT}`,
+        url: baseURL,
+        reuseExistingServer: false,
+        timeout: 120_000,
+      },
 });

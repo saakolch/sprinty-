@@ -15,6 +15,7 @@
     "test:watch": "vitest --config vitest.config.mts",
     "test:db": "npm run db:up && vitest run --config vitest.integration.config.mts",
     "test:e2e": "npm run build && playwright test",
+    "test:e2e:preview": "playwright test",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:reset": "npx supabase db reset",

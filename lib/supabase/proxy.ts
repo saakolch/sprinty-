@@ -46,7 +46,10 @@ export async function updateSession(request: NextRequest) {
   const user = data?.claims;
 
   const pathname = request.nextUrl.pathname;
-  const isPublic = pathname === "/" || pathname.startsWith("/auth");
+  // /api/mcp authenticates its own bearer token; a redirect here would break
+  // non-browser MCP clients before the route can answer 401.
+  const isPublic =
+    pathname === "/" || pathname.startsWith("/auth") || pathname.startsWith("/api/mcp");
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

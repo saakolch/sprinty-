@@ -1,0 +1,38 @@
+name: Supabase keep-alive
+
+# Free Supabase projects pause after ~7 days without activity. This pings the
+# REST endpoint every three days so the project stays awake.
+#
+# Required repository secrets:
+#   SUPABASE_URL       e.g. https://abcdefgh.supabase.co
+#   SUPABASE_ANON_KEY  the project's publishable/anon key (safe to store)
+
+on:
+  schedule:
+    # Every third day at 06:17 UTC.
+    - cron: "17 6 */3 * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping Supabase REST
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Missing SUPABASE_URL or SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
+
+          status=$(curl --silent --show-error --max-time 30 \
+            --output /dev/null --write-out "%{http_code}" \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/")
+
+          echo "Supabase REST responded with HTTP $status"
+          test "$status" -lt 500
