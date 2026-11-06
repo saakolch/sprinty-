@@ -13,8 +13,8 @@ Vercel Hobby + Supabase Free.
 | 2     | Auth flows + end-to-end user isolation | ✅ complete |
 | 3     | Habit / Kanban / Notepad / Finance     | ✅ complete |
 | 4     | Overview dashboard                     | ✅ complete |
-| 5     | MCP server (`/api/mcp`)                | next        |
-| 6     | Deployment hardening + cron keep-alive | planned     |
+| 5     | MCP server (`/api/mcp`)                | ✅ complete |
+| 6     | Deployment hardening + cron keep-alive | next        |
 
 ## Stack
 
@@ -81,6 +81,35 @@ SQL editor in filename order works too.
 Every mutation is a Server Action that validates input, derives `user_id` from
 the session (never from the form), and relies on RLS for ownership.
 
+## MCP server
+
+`POST /api/mcp` exposes 15 tools over the Model Context Protocol, using
+`mcp-handler` on a stateless Vercel function.
+
+| Group   | Tools                                                                                    |
+| ------- | ---------------------------------------------------------------------------------------- |
+| Read    | `lifeos_query` (dashboard, habits, today_habits, finance_summary, goals, tasks, notes)   |
+| Goals   | `lifeos_create_goal`, `lifeos_update_goal`, `lifeos_delete_goal`                         |
+| Tasks   | `lifeos_create_task`, `lifeos_update_task`, `lifeos_complete_task`, `lifeos_delete_task` |
+| Habits  | `lifeos_complete_habit`, `lifeos_uncomplete_habit`                                       |
+| Finance | `lifeos_log_expense`, `lifeos_set_income`                                                |
+| Notes   | `lifeos_create_note`, `lifeos_update_note`, `lifeos_delete_note`                         |
+
+Authentication is `Authorization: Bearer <Supabase access token>`. The route
+verifies the token with GoTrue, then builds the MCP tools around a Supabase
+client carrying that token — so every tool query is scoped by RLS. The route
+never uses the service-role key.
+
+```bash
+# Local token for the MCP Inspector or a client
+npm run mcp:token -- you@example.com 'your-password'
+```
+
+Point an MCP client at `http://localhost:3000/api/mcp` (or your Vercel URL) with
+that bearer token. `npm run test:mcp` signs up real users and asserts
+`tools/list` returns 15 tools, `tools/call` writes a row for the caller, and a
+second user is denied.
+
 ## Testing
 
 ```bash
@@ -88,16 +117,17 @@ npm run verify      # typecheck + lint + unit + RLS (SQL & HTTP) + build
 npm run test:e2e    # production build, then Playwright on desktop + mobile
 ```
 
-| Suite      | Command             | What it proves                                              |
-| ---------- | ------------------- | ----------------------------------------------------------- |
-| Unit       | `npm run test`      | Streaks, money math, daily score, date handling             |
-| RLS / SQL  | `npm run test:db`   | 153 assertions across 26 tables, two real users             |
-| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST          |
-| E2E        | `npm run test:e2e`  | 18 journeys: auth, habits, Kanban, notes, finance, overview |
+| Suite      | Command             | What it proves                                               |
+| ---------- | ------------------- | ------------------------------------------------------------ |
+| Unit       | `npm run test`      | Streaks, money math, daily score, date handling              |
+| RLS / SQL  | `npm run test:db`   | 153 assertions across 26 tables, two real users              |
+| RLS / HTTP | `npm run test:rest` | The same isolation through supabase-js → PostgREST           |
+| MCP        | `npm run test:mcp`  | 12 tests: 15 tools, JSON-RPC `tools/list`, cross-user denial |
+| E2E        | `npm run test:e2e`  | 18 journeys: auth, habits, Kanban, notes, finance, overview  |
 
-`test:e2e` needs the local Supabase stack (`npm run supabase:start`) because the
-auth journey is real. It runs against a production build rather than `next dev`,
-so parallel tests do not race the compiler.
+`test:e2e` and `test:mcp` need the local Supabase stack (`npm run supabase:start`)
+because auth and RLS are real. E2E runs against a production build rather than
+`next dev`, so parallel tests do not race the compiler.
 
 ### How the RLS tests work
 
@@ -139,6 +169,7 @@ RLS, without all four policies, with a policy that does not reference
 ```
 app/
   (app)/               authenticated shell: dashboard, habits, kanban, notes, finance
+  api/mcp/route.ts     stateless MCP endpoint (bearer token required)
   auth/                login, sign-up, confirm, actions
 components/            UI primitives, auth forms, module forms
 lib/
@@ -148,6 +179,8 @@ lib/
   overview.ts          daily score (pure)
   kanban.ts            column movement (pure)
   notes.ts             titles + excerpts (pure)
+  mcp/tools.ts         15 MCP tool definitions
+  mcp/server.ts        per-request MCP handler bound to one user's client
   supabase/            client.ts (browser), server.ts (RSC), proxy.ts (session refresh)
 scripts/supabase-env.mjs   writes .env.local from `supabase status`
 supabase/
@@ -156,9 +189,10 @@ supabase/
                        0005 RLS · 0006 storage · 0007 note revisions
   seed.sql             dev-only demo data for the newest user
 tests/
-  unit/                Vitest unit tests (pure logic)
+  unit/                Vitest unit tests (pure logic + MCP route auth)
   integration/         RLS, schema invariants, account lifecycle, note history
   integration-rest/    The same checks through supabase-js + PostgREST
+  integration-mcp/     MCP tools + JSON-RPC protocol against local Supabase
   db/                  Docker/auth shim, fixtures, JWT + proxy helpers
   e2e/                 Playwright journeys (auth, habits, kanban, notes, finance, overview)
 docker-compose.test.yml
@@ -181,13 +215,14 @@ docker-compose.test.yml
 
 ## Scripts
 
-| Script                                  | Purpose                               |
-| --------------------------------------- | ------------------------------------- |
-| `npm run dev` / `build` / `start`       | Next.js                               |
-| `npm run setup:local`                   | Supabase start + reset + `.env.local` |
-| `npm run supabase:start` / `:stop`      | Local Supabase lifecycle              |
-| `npm run supabase:reset` / `:env`       | Re-apply migrations / refresh env     |
-| `npm run typecheck` / `lint` / `format` | Quality gates                         |
-| `npm run db:up` / `db:down`             | Test database lifecycle (port 54331)  |
-| `npm run test` / `test:db` / `test:e2e` | Test suites                           |
-| `npm run verify`                        | Everything except Playwright          |
+| Script                                                             | Purpose                                 |
+| ------------------------------------------------------------------ | --------------------------------------- |
+| `npm run dev` / `build` / `start`                                  | Next.js                                 |
+| `npm run setup:local`                                              | Supabase start + reset + `.env.local`   |
+| `npm run supabase:start` / `:stop`                                 | Local Supabase lifecycle                |
+| `npm run supabase:reset` / `:env`                                  | Re-apply migrations / refresh env       |
+| `npm run typecheck` / `lint` / `format`                            | Quality gates                           |
+| `npm run db:up` / `db:down`                                        | Test database lifecycle (port 54331)    |
+| `npm run test` / `test:db` / `test:rest` / `test:mcp` / `test:e2e` | Test suites                             |
+| `npm run mcp:token`                                                | Print a local access token for MCP      |
+| `npm run verify`                                                   | Everything that needs no Supabase stack |

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth";
+import { ensureActivePeriod } from "@/lib/finance-period";
 import { createClient } from "@/lib/supabase/server";
 
 export interface TransactionFormState {
@@ -21,39 +22,6 @@ function isIsoDate(value: string): boolean {
 function revalidateFinance(): void {
   revalidatePath("/finance");
   revalidatePath("/dashboard");
-}
-
-type Supabase = Awaited<ReturnType<typeof createClient>>;
-
-async function ensureActivePeriod(supabase: Supabase, userId: string): Promise<string | null> {
-  const { data: active } = await supabase
-    .from("finance_periods")
-    .select("id")
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (active) return (active as { id: string }).id;
-
-  const { data: created, error } = await supabase
-    .from("finance_periods")
-    .insert({ user_id: userId, name: "Current", is_active: true })
-    .select("id")
-    .single();
-
-  if (created) return (created as { id: string }).id;
-
-  // A concurrent first write may have won the unique(name) race.
-  const { data: fallback } = await supabase
-    .from("finance_periods")
-    .select("id")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (fallback) return (fallback as { id: string }).id;
-
-  console.error("ensureActivePeriod", error?.message);
-  return null;
 }
 
 export async function addTransaction(

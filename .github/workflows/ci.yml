@@ -45,6 +45,9 @@ jobs:
       - run: npx supabase db reset
       - run: npm run supabase:env
 
+      # MCP tools and protocol against the same local stack.
+      - run: npm run test:mcp
+
       - run: npm run build
 
       - run: npx playwright install --with-deps chromium
