@@ -78,13 +78,15 @@ rows; the rest still run.
 ## 6. Keep the free project awake
 
 Supabase pauses inactive free projects after roughly a week. The repository
-includes `.github/workflows/keepalive.yml`, which pings `/rest/v1/` every three
-days.
+includes `.github/workflows/keepalive.yml`, which calls `public.keepalive()`
+(`POST /rest/v1/rpc/keepalive`) every three days — a real database round trip
+that returns `{"ok": true}` and exposes no user data.
 
 Add two repository secrets (Settings → Secrets and variables → Actions):
 
 - `SUPABASE_URL` — `https://<project-ref>.supabase.co`
-- `SUPABASE_ANON_KEY` — the publishable/anon key
+- `SUPABASE_ANON_KEY` — the publishable/anon key (safe to store; the RPC is
+  executable by `anon` and returns no rows)
 
 Trigger the workflow once manually to confirm it returns HTTP 200.
 

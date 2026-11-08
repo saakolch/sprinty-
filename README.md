@@ -138,7 +138,7 @@ npm run test:e2e    # production build, then Playwright on desktop + mobile
 | Suite      | Command                | What it proves                                                                                       |
 | ---------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
 | Unit       | `npm run test`         | Streaks, goal progress, todo order, settings, money, score, dates                                    |
-| RLS / SQL  | `npm run test:db`      | 153 assertions across 26 tables, two real users                                                      |
+| RLS / SQL  | `npm run test:db`      | 154 assertions across 26 tables, two real users                                                      |
 | RLS / HTTP | `npm run test:rest`    | The same isolation through supabase-js → PostgREST                                                   |
 | MCP        | `npm run test:mcp`     | 12 tests: 15 tools, JSON-RPC `tools/list`, cross-user denial                                         |
 | Storage    | `npm run test:storage` | 6 tests: private bucket, cross-user read/write denied                                                |

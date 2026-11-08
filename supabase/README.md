@@ -11,6 +11,7 @@
 | `0005_rls.sql`            | RLS enablement, owner-only policies, grants                                                                                                                             |
 | `0006_storage.sql`        | Private `attachments` bucket + storage policies (no-op off Supabase)                                                                                                    |
 | `0007_note_revisions.sql` | Trigger that snapshots every note create/content change into `note_revisions`                                                                                           |
+| `0008_keepalive.sql`      | `public.keepalive()` RPC + anon execute grant, used by the keep-alive cron                                                                                              |
 
 ## Local stack
 

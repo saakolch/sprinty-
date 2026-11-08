@@ -1,11 +1,14 @@
 name: Supabase keep-alive
 
-# Free Supabase projects pause after ~7 days without activity. This pings the
-# REST endpoint every three days so the project stays awake.
+# Free Supabase projects pause after ~7 days without activity. This calls a
+# tiny RPC every three days so the project stays awake.
 #
-# Required repository secrets:
+# Required repository secrets (both are safe to store):
 #   SUPABASE_URL       e.g. https://abcdefgh.supabase.co
-#   SUPABASE_ANON_KEY  the project's publishable/anon key (safe to store)
+#   SUPABASE_ANON_KEY  the project's publishable/anon key
+#
+# The RPC returns {"ok": true} and exposes no user data; no service-role key is
+# needed.
 
 on:
   schedule:
@@ -19,7 +22,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Ping Supabase REST
+      - name: Ping Supabase keepalive RPC
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -32,7 +35,8 @@ jobs:
           status=$(curl --silent --show-error --max-time 30 \
             --output /dev/null --write-out "%{http_code}" \
             --header "apikey: $SUPABASE_ANON_KEY" \
-            "$SUPABASE_URL/rest/v1/")
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/rpc/keepalive")
 
-          echo "Supabase REST responded with HTTP $status"
-          test "$status" -lt 500
+          echo "Supabase keepalive responded with HTTP $status"
+          test "$status" -eq 200

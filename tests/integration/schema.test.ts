@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { admin, closeAdmin } from "../db/harness";
+import { admin, asAnon, closeAdmin } from "../db/harness";
 import { OWNER_TABLES } from "../db/fixtures";
 
 /**
@@ -135,5 +135,16 @@ describe("row level security policies", () => {
       order by c.relname
     `);
     expect(result.rows.map((row) => row.relname)).toEqual([]);
+  });
+
+  it("lets anonymous callers run only the keepalive RPC", async () => {
+    const payload = await asAnon(async (client) => {
+      const result = await client.query<{ keepalive: { ok: boolean } }>(
+        "select public.keepalive() as keepalive",
+      );
+      return result.rows[0].keepalive;
+    });
+
+    expect(payload.ok).toBe(true);
   });
 });
