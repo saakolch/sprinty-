@@ -72,6 +72,16 @@ try {
 
   pass("both users can sign in");
 
+  const publicEmail = `verify-public-${Date.now().toString(36)}@example.com`;
+  const publicClient = createClient(url, anonKey, anonOptions);
+  const publicSignUp = await publicClient.auth.signUp({ email: publicEmail, password });
+  if (publicSignUp.error) throw publicSignUp.error;
+  if (!publicSignUp.data.session || !publicSignUp.data.user) {
+    throw new Error("public sign-up returned no session — email confirmation is still required");
+  }
+  created.push({ ...publicSignUp.data.user, password });
+  pass("public sign-up returns a session immediately");
+
   const insert = await aliceClient
     .from("habits")
     .insert({ user_id: alice.id, name: "cloud verification" })
