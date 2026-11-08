@@ -24,3 +24,11 @@ test("deployment is connected to Supabase", async ({ page }) => {
   await expect(error).toBeVisible();
   await expect(error).toContainText(/invalid/i);
 });
+
+test("MCP endpoint is deployed and rejects anonymous callers", async ({ request }) => {
+  const response = await request.post("/api/mcp", {
+    data: { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} },
+  });
+
+  expect(response.status()).toBe(401);
+});
