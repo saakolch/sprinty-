@@ -1,0 +1,41 @@
+name: Preview check
+
+# Verifies the deployed app is alive and connected to Supabase. The test never
+# creates an account: it attempts a login with impossible credentials and
+# expects GoTrue to answer "Invalid login credentials".
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/preview.yml"
+      - "tests/e2e/deployed.spec.ts"
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Check the deployment
+        env:
+          PLAYWRIGHT_BASE_URL: https://sprinty-three.vercel.app
+        run: npx playwright test tests/e2e/deployed.spec.ts --project=desktop-chromium
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-report
+          path: playwright-report/
+          retention-days: 7
