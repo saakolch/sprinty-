@@ -34,8 +34,8 @@ where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity; -- 0 ro
 **Authentication → URL Configuration**
 
 - Site URL: `https://<your-app>.vercel.app`
-- Redirect URLs: `https://<your-app>.vercel.app/**` and
-  `http://localhost:3000/**`
+- Redirect URLs: `https://<your-app>.vercel.app/**`,
+  `http://localhost:3001/**` and `http://localhost:3000/**`
 
 **Authentication → Providers → Email**
 

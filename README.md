@@ -31,7 +31,7 @@ Requires Node.js 20.9+, npm, and Docker.
 ```bash
 npm install
 npm run setup:local   # supabase start + db reset + generate .env.local
-npm run dev           # http://localhost:3000
+npm run dev           # http://localhost:3001
 ```
 
 `setup:local` starts the Supabase CLI stack (Postgres, GoTrue, PostgREST,
@@ -123,7 +123,7 @@ never uses the service-role key.
 npm run mcp:token -- you@example.com 'your-password'
 ```
 
-Point an MCP client at `http://localhost:3000/api/mcp` (or your Vercel URL) with
+Point an MCP client at `http://localhost:3001/api/mcp` (or your Vercel URL) with
 that bearer token. `npm run test:mcp` signs up real users and asserts
 `tools/list` returns 15 tools, `tools/call` writes a row for the caller, and a
 second user is denied.
